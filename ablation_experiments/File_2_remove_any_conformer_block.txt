@@ -1,0 +1,228 @@
+class ConformerEncoder(nn.Module):
+    def __init__(self, num_layers, d_model, d_ff, num_heads,
+                 kernel_size=31, dropout=0.1, input_dim=None,
+                 remove_blocks=None):
+        super().__init__()
+        # Input projection
+        if input_dim is not None and input_dim != d_model:
+            self.input_proj = nn.Linear(input_dim, d_model)
+        else:
+            self.input_proj = nn.Identity()
+
+        # Default: no blocks removed
+        if remove_blocks is None:
+            remove_blocks = []
+
+        # Build stack with selective removal
+        self.layers = nn.ModuleList([
+            ConformerBlock(d_model, d_ff, num_heads, kernel_size, dropout)
+            if i not in remove_blocks else nn.Identity()
+            for i in range(num_layers)
+        ])
+
+        self.final_norm = nn.LayerNorm(d_model)
+
+    def forward(self, x, mask=None):
+        x = self.input_proj(x)
+        for layer in self.layers:
+            # Identity just returns x unchanged
+            x = layer(x, mask) if not isinstance(layer, nn.Identity) else layer(x)
+        return self.final_norm(x)
+
+
+call it this way:
+
+encoder = ConformerEncoder(
+    num_layers=6,
+    d_model=512,
+    d_ff=1024,
+    num_heads=8,
+    kernel_size=31,
+    dropout=0.1,
+    input_dim=512,
+    remove_blocks=[2]
+)
+
+
+=======================================================================================================================
+09/05/2026
+
+remove [2]
+
+ConformerEncoder(
+  (input_proj): Identity()
+  (layers): ModuleList(
+    (0-1): 2 x ConformerBlock(
+      (ffn1): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (ffn2): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (mhsa): MultiHeadAttention(
+        (W_q): Linear(in_features=512, out_features=512, bias=True)
+        (W_k): Linear(in_features=512, out_features=512, bias=True)
+        (W_v): Linear(in_features=512, out_features=512, bias=True)
+        (W_o): Linear(in_features=512, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (pos_enc): RelativePositionEncoding(
+          (relative_bias): Embedding(19999, 4)
+        )
+      )
+      (conv_module): ConformerConvModule(
+        (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (pointwise_conv1): Conv1d(512, 1024, kernel_size=(1,), stride=(1,))
+        (depthwise_conv): Conv1d(512, 512, kernel_size=(31,), stride=(1,), padding=(15,), groups=512)
+        (batch_norm): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activation): SiLU()
+        (pointwise_conv2): Conv1d(512, 512, kernel_size=(1,), stride=(1,))
+        (dropout): Dropout(p=0.1, inplace=False)
+      )
+      (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+    )
+    (2): Identity()
+    (3-5): 3 x ConformerBlock(
+      (ffn1): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (ffn2): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (mhsa): MultiHeadAttention(
+        (W_q): Linear(in_features=512, out_features=512, bias=True)
+        (W_k): Linear(in_features=512, out_features=512, bias=True)
+        (W_v): Linear(in_features=512, out_features=512, bias=True)
+        (W_o): Linear(in_features=512, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (pos_enc): RelativePositionEncoding(
+          (relative_bias): Embedding(19999, 4)
+        )
+      )
+      (conv_module): ConformerConvModule(
+        (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (pointwise_conv1): Conv1d(512, 1024, kernel_size=(1,), stride=(1,))
+        (depthwise_conv): Conv1d(512, 512, kernel_size=(31,), stride=(1,), padding=(15,), groups=512)
+        (batch_norm): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activation): SiLU()
+        (pointwise_conv2): Conv1d(512, 512, kernel_size=(1,), stride=(1,))
+        (dropout): Dropout(p=0.1, inplace=False)
+      )
+      (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+    )
+  )
+  (final_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+)
+
+✅ Thesis‑ready phrasing
+“Inspection of the encoder architecture confirmed that block 2 was successfully removed. The printed model shows Identity() at index 2, verifying that this layer has no parameters and returns its input unchanged during training. Thus, the ablation setup excludes block 2 while retaining all other Conformer blocks and the final normalization.”
+
+🔹 When you might skip it
+If your thesis already includes code snippets or a methods section explaining the ablation logic (remove_blocks=[2]), then the full printed structure may be redundant.
+
+If space is tight, you can summarize instead: “Block 2 was replaced with Identity(), as confirmed by the printed encoder structure (see appendix).”
+
+✅ Thesis‑ready phrasing
+“The printed architecture of the ConformerEncoder, showing Identity() at index 2, was included in the appendix to document the ablation setup. This ensures transparency and reproducibility, while keeping the main text focused on experimental results.”
+
+
+
+
+remove [3, 5]
+
+ConformerEncoder(
+  (input_proj): Identity()
+  (layers): ModuleList(
+    (0-2): 3 x ConformerBlock(
+      (ffn1): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (ffn2): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (mhsa): MultiHeadAttention(
+        (W_q): Linear(in_features=512, out_features=512, bias=True)
+        (W_k): Linear(in_features=512, out_features=512, bias=True)
+        (W_v): Linear(in_features=512, out_features=512, bias=True)
+        (W_o): Linear(in_features=512, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (pos_enc): RelativePositionEncoding(
+          (relative_bias): Embedding(19999, 4)
+        )
+      )
+      (conv_module): ConformerConvModule(
+        (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (pointwise_conv1): Conv1d(512, 1024, kernel_size=(1,), stride=(1,))
+        (depthwise_conv): Conv1d(512, 512, kernel_size=(31,), stride=(1,), padding=(15,), groups=512)
+        (batch_norm): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activation): SiLU()
+        (pointwise_conv2): Conv1d(512, 512, kernel_size=(1,), stride=(1,))
+        (dropout): Dropout(p=0.1, inplace=False)
+      )
+      (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+    )
+    (3): Identity()
+    (4): ConformerBlock(
+      (ffn1): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (ffn2): FeedForward(
+        (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (fc1): Linear(in_features=512, out_features=1024, bias=True)
+        (fc2): Linear(in_features=1024, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (activation): SiLU()
+      )
+      (mhsa): MultiHeadAttention(
+        (W_q): Linear(in_features=512, out_features=512, bias=True)
+        (W_k): Linear(in_features=512, out_features=512, bias=True)
+        (W_v): Linear(in_features=512, out_features=512, bias=True)
+        (W_o): Linear(in_features=512, out_features=512, bias=True)
+        (dropout): Dropout(p=0.1, inplace=False)
+        (pos_enc): RelativePositionEncoding(
+          (relative_bias): Embedding(19999, 4)
+        )
+      )
+      (conv_module): ConformerConvModule(
+        (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+        (pointwise_conv1): Conv1d(512, 1024, kernel_size=(1,), stride=(1,))
+        (depthwise_conv): Conv1d(512, 512, kernel_size=(31,), stride=(1,), padding=(15,), groups=512)
+        (batch_norm): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activation): SiLU()
+        (pointwise_conv2): Conv1d(512, 512, kernel_size=(1,), stride=(1,))
+        (dropout): Dropout(p=0.1, inplace=False)
+      )
+      (layer_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+    )
+    (5): Identity()
+  )
+  (final_norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
+)
+

@@ -1,0 +1,299 @@
+🔹 Step 1: Reconstruction Error
+If your FeedForward module outputs a transformed representation (say, hidden features), you can:
+
+Attach a small auxiliary head (like a linear layer) to its output.
+
+Compute a reconstruction loss (e.g., MSE between the module’s output and the original input, or between its output and the target embedding).
+
+Log this loss separately during training.
+
+This gives you a direct measure of how well the FeedForward block preserves or transforms information.
+
+🔹 Step 2: Contribution to Overall Loss
+Use forward hooks in PyTorch to capture the module’s output during training.
+
+Compare the main task loss (e.g., phoneme prediction loss) with and without the FeedForward module.
+
+If removing or bypassing it increases the loss significantly, you know it’s contributing positively.
+
+Example:
+
+python
+import torch.nn as nn
+
+def feedforward_hook(module, input, output):
+    # Compute auxiliary metric, e.g., norm of output
+    print("FeedForward output norm:", output.norm().item())
+
+feedforward_layer = model.feedforward
+hook = feedforward_layer.register_forward_hook(feedforward_hook)
+🔹 Step 3: Ablation Study
+Replace FeedForward with a simple linear layer:
+
+python
+model.feedforward = nn.Linear(in_features, out_features)
+Train/evaluate again.
+
+Compare metrics (loss, accuracy, MOS if synthesizer output).
+
+The difference quantifies the FeedForward module’s impact.
+
+🔹 Step 4: Profiling
+Use torch.profiler to measure runtime and memory usage of the FeedForward block.
+
+This tells you if it’s efficient relative to its contribution.
+
+🔹 Takeaway
+To measure the FeedForward module:
+
+Add auxiliary reconstruction loss.
+
+Log its intermediate outputs with hooks.
+
+Run ablation by replacing/removing it.
+
+Profile efficiency.
+
+Together, these give you a clear picture of both performance impact and resource cost.
+
+
+-------------------------------------------------------------------------------------------------
+=============
+step1
+=============
+
+import torch.nn.functional as F
+
+class ConformerBlock(nn.Module):
+    def __init__(self, d_model, d_ff, num_heads, kernel_size=31, dropout=0.1):
+        super().__init__()
+        self.ffn1 = FeedForward(d_model, d_ff, dropout)
+        self.ffn2 = FeedForward(d_model, d_ff, dropout)
+        self.mhsa = MultiHeadAttention(d_model, num_heads, dropout, use_positional_encoding=True)
+        self.conv_module = ConformerConvModule(d_model, kernel_size, dropout)
+        self.layer_norm = nn.LayerNorm(d_model)
+
+    def forward(self, x, mask=None):
+        # Save input before FFN1
+        x_in_ffn1 = x.clone()
+        out_ffn1 = self.ffn1(x_in_ffn1)
+        # Reconstruction error for FFN1
+        recon_loss_ffn1 = F.mse_loss(out_ffn1, x_in_ffn1)
+
+        # Residual scaling
+        x = x + 0.5 * out_ffn1
+
+        # MHSA
+        x = x + self.mhsa(x, x, x, mask)
+
+        # Convolution
+        x = x + self.conv_module(x)
+
+        # Save input before FFN2
+        x_in_ffn2 = x.clone()
+        out_ffn2 = self.ffn2(x_in_ffn2)
+        # Reconstruction error for FFN2
+        recon_loss_ffn2 = F.mse_loss(out_ffn2, x_in_ffn2)
+
+        # Residual scaling
+        x = x + 0.5 * out_ffn2
+
+        return self.layer_norm(x), recon_loss_ffn1, recon_loss_ffn2
+
+🔹 How to Use It
+During training, unpack the forward pass:
+
+python
+output, loss_ffn1, loss_ffn2 = conformer_block(x, mask)
+Log loss_ffn1 and loss_ffn2 separately.
+Compare their magnitudes across epochs.
+If they’re consistently small → the FeedForward is mostly preserving input.
+If they’re large → the FeedForward is heavily transforming features.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------------
+=============
+step2
+=============
+
+python
+def forward(self, x, mask=None):
+    x_in_ffn1 = x.clone()
+    out_ffn1 = self.ffn1(x_in_ffn1)
+    recon_loss_ffn1 = F.mse_loss(out_ffn1, x_in_ffn1)
+
+    x = x + 0.5 * out_ffn1
+    x = x + self.mhsa(x, x, x, mask)
+    x = x + self.conv_module(x)
+
+    x_in_ffn2 = x.clone()
+    out_ffn2 = self.ffn2(x_in_ffn2)
+    recon_loss_ffn2 = F.mse_loss(out_ffn2, x_in_ffn2)
+
+    x = x + 0.5 * out_ffn2
+    return self.layer_norm(x), recon_loss_ffn1, recon_loss_ffn2
+Then in training:
+
+python
+output, loss_ffn1, loss_ffn2 = conformer_block(x, mask)
+main_loss = criterion(output, target)
+total_loss = main_loss + alpha*(loss_ffn1 + loss_ffn2)  # optional weighting
+This lets you see how much the FeedForward losses contribute relative to the main loss.
+-------------------------------------------------------------------------------------------------
+=============
+step3
+=============
+
+Exactly Gabriel — for Step 3 (ablation) in your ConformerBlock, you can directly swap out the FeedForward modules (ffn1 and ffn2) with simple linear layers to see how much performance changes. This lets you quantify how much the FeedForward contributes compared to a baseline.
+
+🔹 How to Replace FeedForward with Linear
+Right now you have:
+
+python
+self.ffn1 = FeedForward(d_model, d_ff, dropout)
+self.ffn2 = FeedForward(d_model, d_ff, dropout)
+For ablation, replace with:
+
+python
+self.ffn1 = nn.Linear(d_model, d_model)
+self.ffn2 = nn.Linear(d_model, d_model)
+This way:
+
+Input and output dimensions stay consistent (d_model → d_model).
+
+You remove the extra nonlinearity and dropout logic from FeedForward.
+
+The residual scaling (x + 0.5 * self.ffn1(x)) still works.
+
+🔹 How to Compare Performance
+Train/Evaluate with FeedForward → record metrics (loss, accuracy, MOS if synthesizer output).
+
+Train/Evaluate with Linear replacement → record metrics again.
+
+Compare differences:
+
+If accuracy drops or loss increases significantly, FeedForward is contributing positively.
+
+If performance is similar, FeedForward may not be critical in your setup.
+
+🔹 Optional Variants
+Replace with identity mapping (nn.Identity()) to see the effect of removing the block entirely.
+
+Replace with simpler nonlinear layer (e.g., nn.ReLU() after linear) to test minimal nonlinearity.
+
+🔹 Takeaway
+By swapping FeedForward with Linear, you create a controlled experiment. The performance gap between the original and ablated model tells you exactly how much the FeedForward module matters in your U2UT pipeline.
+
+
+------------------------------------------------------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------------------------------
+=============
+step4
+=============
+
+
+🔹 Step 4: Profiling
+Here you measure time and memory cost per module.
+
+Tools:
+
+torch.profiler
+
+Built‑in PyTorch profiler for CPU/GPU time, memory, FLOPs.
+
+Can break down by module.
+
+Code sketch:
+
+python
+import torch.profiler
+
+with torch.profiler.profile(
+    activities=[torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA],
+    record_shapes=True,
+    profile_memory=True,
+    with_stack=True
+) as prof:
+    output = model(x)
+
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+This will show you which modules (FeedForward, ConformerConvModule, MultiHeadAttention, etc.) consume the most GPU time and memory.
+
+
+
+
+import torch.profiler
+
+def train(model, dataloader, optimizer, loss_fn, device, scaler, global_step, pad_token=0, scheduler=None, profile=False):
+    model.train()
+    step_losses = []
+    step_accs = []
+    total_loss, total_correct, total_tokens = 0.0, 0, 0
+
+    for step, (src_feats, tgt_phonemes) in enumerate(dataloader, start=start_step):
+        src_feats, tgt_phonemes = src_feats.to(device), tgt_phonemes.to(device)
+        optimizer.zero_grad()
+
+        # Profile only the first batch if profile=True
+        if profile and step == 0:
+            with torch.profiler.profile(
+                activities=[torch.profiler.ProfilerActivity.CPU,
+                            torch.profiler.ProfilerActivity.CUDA],
+                record_shapes=True,
+                profile_memory=True,
+                with_stack=True
+            ) as prof:
+
+                with torch.cuda.amp.autocast():
+                    phoneme_logits, unit_logits = model(src_feats, tgt_phonemes)
+                    seq_len = tgt_phonemes.size(1)
+                    unit_logits = unit_logits[:, :seq_len, :]
+                    loss = loss_fn(unit_logits.reshape(-1, unit_logits.size(-1)),
+                                   tgt_phonemes.reshape(-1))
+
+                scaler.scale(loss).backward(retain_graph=True)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+
+            # Print profiler results
+            print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+
+        else:
+            # Normal training step
+            with torch.cuda.amp.autocast():
+                phoneme_logits, unit_logits = model(src_feats, tgt_phonemes)
+                seq_len = tgt_phonemes.size(1)
+                unit_logits = unit_logits[:, :seq_len, :]
+                loss = loss_fn(unit_logits.reshape(-1, unit_logits.size(-1)),
+                               tgt_phonemes.reshape(-1))
+
+            scaler.scale(loss).backward(retain_graph=True)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            scaler.step(optimizer)
+            scaler.update()
+
+        global_step += 1
+        print(f"Global Step {global_step}: Train Step {step}: Train Loss = {loss.item():.4f}")
+        step_losses.append(loss.item())
+
+        total_loss += loss.item()
+        preds = unit_logits.detach().argmax(dim=-1)
+        mask = (tgt_phonemes != pad_token)
+        correct = (preds[mask] == tgt_phonemes[mask]).sum().item()
+        total_correct += correct
+        total_tokens += mask.sum().item()
+        total = mask.sum().item()
+        acc = correct / total if total > 0 else 0.0
+        step_accs.append(acc)
+
+    # scheduler.step()  # optional
+
+    avg_loss = total_loss / len(dataloader)
+    accuracy = total_correct / total_tokens if total_tokens > 0 else 0.0
+    return avg_loss, accuracy, step_losses, step_accs, step, global_step
+-----------------------------------------------------------------------------------------------------------

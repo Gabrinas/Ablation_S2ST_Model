@@ -1,0 +1,14 @@
+﻿Operator,Self CPU % (No Feedforward),Self CPU Time (No Feedforward),CPU Total % (No Feedforward),CPU Total Time (No Feedforward),# Calls (No Feedforward),Self CPU % (No Positional Encoding),Self CPU Time (No Positional Encoding),CPU Total % (No Positional Encoding),CPU Total Time (No Positional Encoding),# Calls (No Positional Encoding)
+aten::linear,0.01%,1.367 ms,1.53%,153.010 ms,98,0.02%,1.981 ms,2.82%,335.709 ms,122
+aten::to,0.01%,747.769 µs,0.84%,83.807 ms,633,0.01%,1.074 ms,1.82%,215.809 ms,711
+aten::_to_copy,0.03%,3.058 ms,0.83%,83.059 ms,409,0.04%,4.672 ms,1.81%,214.735 ms,451
+aten::empty_strided,0.05%,5.075 ms,0.09%,9.466 ms,642,0.06%,6.965 ms,0.21%,25.282 ms,774
+aten::copy_,1.08%,108.356 ms,9.15%,916.270 ms,"19,810",1.22%,144.498 ms,11.68%,1.389 s,"19,846"
+cudaLaunchKernel,44.39%,4.447 s,44.39%,4.447 s,"39,351",45.51%,5.408 s,45.51%,5.408 s,"39,403"
+aten::reshape,0.01%,924.584 µs,0.20%,20.413 ms,277,—,—,—,—,—
+aten::view,0.01%,1.032 ms,0.01%,1.032 ms,417,0.02%,1.822 ms,0.02%,1.822 ms,483
+aten::t,0.01%,547.252 µs,0.01%,1.272 ms,229,—,—,—,—,—
+aten::transpose,0.01%,991.280 µs,0.01%,1.376 ms,369,—,—,—,—,—
+aten::layer_norm,—,—,—,—,—,0.00%,180.244 µs,0.19%,22.423 ms,25
+aten::native_layer_norm,—,—,—,—,—,0.02%,2.609 ms,0.19%,22.243 ms,25
+aten::empty,—,—,—,—,—,1.24%,147.017 ms,1.31%,155.095 ms,"19,699"

@@ -1,0 +1,95 @@
+🔹 Module‑level Evaluation Strategies
+FeedForward
+
+Measure reconstruction error or contribution to overall loss.
+
+Ablation: remove or replace with linear layer and compare accuracy.
+
+ConformerConvModule
+
+Profile receptive field and local feature extraction.
+
+Compare validation loss with and without this block.
+
+RelativePositionEncoding
+
+Evaluate attention alignment quality.
+
+Visualize attention maps with vs. without relative encoding.
+
+MultiHeadAttention
+
+Inspect attention weights for interpretability.
+
+Measure perplexity or alignment accuracy when heads are pruned.
+
+ConformerBlock
+
+Track gradient norms and contribution to convergence.
+
+Ablation: replace with Transformer block and compare metrics.
+
+ConformerEncoder
+
+Evaluate encoder embeddings with auxiliary tasks (e.g., phoneme classification).
+
+Use t‑SNE/UMAP to visualize clustering of encoded features.
+
+LSTMDecoderBlock
+
+Measure sequence prediction accuracy (cross‑entropy loss).
+
+Compare BLEU or CER scores when swapping with Transformer decoder.
+
+PhonemeDecoder
+
+Track phoneme prediction accuracy directly.
+
+Confusion matrix of predicted vs. target phonemes.
+
+DurationPredictor
+
+Evaluate mean absolute error (MAE) between predicted and ground‑truth durations.
+
+Correlate predicted durations with alignment quality.
+
+Upsampler
+
+Measure reconstruction fidelity (MSE, PSNR) of upsampled features.
+
+Compare synthesis quality with vs. without upsampling.
+
+Synthesizer
+
+Evaluate final audio quality with MOS (Mean Opinion Score).
+
+Objective metrics: STOI, PESQ, or mel‑spectrogram distance.
+
+🔹 Practical Tools in PyTorch
+Hooks (register_forward_hook) → capture intermediate activations and compute module‑specific metrics.
+
+Torch profiler → measure runtime and memory per module.
+
+Auxiliary losses → attach small heads (e.g., classifiers) to intermediate outputs to quantify usefulness.
+
+Ablation studies → disable or replace modules and measure performance drop.
+
+🔹 Takeaway
+You can measure each module’s performance by combining ablation studies, intermediate evaluations, profiling, and auxiliary losses. This gives you both quantitative metrics (loss, accuracy, MAE, MOS) and qualitative insights (attention maps, embeddings visualization).
+
+
+
+
+
+🔹 Suggested Component List
+FeedForward → replace with nn.Linear or nn.Identity.
+
+ConformerConvModule → replace with nn.Identity.
+
+MultiHeadAttention → replace with single‑head or remove positional encoding.
+replace self.mhsa = MultiHeadAttention(d_model, num_heads, dropout, use_positional_encoding=True) with self.mhsa = nn.Identity()
+replace x = x + self.mhsa(x, x, x, mask) with x = x + self.mhsa(x) or just x = self.mhsa(x)
+
+DurationPredictor → replace with constant duration or simple linear predictor.
+
+DecoderBlock → swap with a simpler RNN or identity mapping.

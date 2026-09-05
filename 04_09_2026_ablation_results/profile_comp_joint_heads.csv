@@ -1,0 +1,12 @@
+﻿Operator,Self CPU % (Head=1),Self CPU Time (Head=1),Self CPU % (Head=2),Self CPU Time (Head=2),Self CPU % (Head=4),Self CPU Time (Head=4),Self CPU % (Head=8),Self CPU Time (Head=8),CPU Total Time (Head=1),CPU Total Time (Head=2),CPU Total Time (Head=4),CPU Total Time (Head=8),# Calls (Head=1),# Calls (Head=2),# Calls (Head=4),# Calls (Head=8)
+aten::layer_norm,0.00%,460.6 µs,0.00%,502.9 µs,0.00%,186.9 µs,0.00%,233.5 µs,17.68 ms,28.17 ms,35.74 ms,61.32 ms,25,25,25,25
+aten::native_layer_norm,0.03%,3.07 ms,0.01%,1.53 ms,0.02%,2.33 ms,0.02%,3.46 ms,17.22 ms,27.67 ms,35.55 ms,61.09 ms,25,25,25,25
+aten::empty,1.01%,98.29 ms,0.89%,93.80 ms,1.07%,109.0 ms,0.52%,111.8 ms,104.36 ms,107.67 ms,132.78 ms,112.49 ms,"19,734","19,789","19,789","19,789"
+cudaLaunchKernel,43.22%,4.20 s,42.39%,4.47 s,45.65%,4.67 s,64.43%,13.72 s,4.20 s,4.47 s,4.67 s,13.72 s,"39,534","39,589","39,589","39,589"
+aten::view,0.02%,1.52 ms,0.01%,1.34 ms,0.02%,1.75 ms,0.01%,1.66 ms,1.52 ms,1.34 ms,1.75 ms,1.66 ms,536,501,501,501
+aten::linear,0.02%,1.82 ms,0.02%,1.69 ms,0.02%,1.78 ms,0.01%,1.71 ms,278.66 ms,221.91 ms,274.67 ms,690.07 ms,122,122,122,122
+aten::to,0.01%,1.15 ms,0.01%,664 µs,0.01%,869 µs,0.01%,1.58 ms,82.69 ms,110.79 ms,171.45 ms,382.02 ms,729,729,729,729
+aten::_to_copy,0.04%,3.83 ms,0.02%,2.61 ms,0.03%,3.56 ms,0.02%,4.13 ms,81.55 ms,110.13 ms,170.58 ms,380.44 ms,457,457,457,457
+aten::empty_strided,0.06%,5.68 ms,0.04%,4.72 ms,0.05%,5.40 ms,0.02%,5.31 ms,21.78 ms,17.11 ms,24.59 ms,23.19 ms,786,786,786,786
+aten::copy_,0.93%,90.33 ms,0.89%,93.99 ms,1.04%,106.8 ms,0.59%,124.97 ms,823.78 ms,979.55 ms,920.58 ms,3.33 s,"19,803","19,858","19,858","19,858"
+Self CPU time total,—,9.717 s,—,10.553 s,—,10.227 s,—,21.297 s,—,—,—,—,—,—,—,—

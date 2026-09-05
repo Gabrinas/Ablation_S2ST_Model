@@ -1,0 +1,6 @@
+🔹 Thesis‑ready Insight
+The merged profiling shows that in both ablation setups, cudaLaunchKernel dominates runtime (~44–45%), confirming kernel launch overhead as the primary bottleneck. Removing feedforward layers reduces overall self CPU time (10.018s vs 11.884s), while removing positional encoding introduces additional overhead in operators like aten::linear and aten::copy_, which consume more time and calls. Memory allocation via aten::empty is heavier without positional encoding (~147 ms, 19.7k calls), while device transfer ops (aten::to, _to_copy) also show higher costs. Overall, the comparison highlights that kernel launches remain the dominant inefficiency, but the choice of ablation (feedforward vs positional encoding) shifts secondary bottlenecks between memory allocation and data transfer.
+
+
+✅ Thesis‑ready phrasing
+“Comparing the ablation studies, the configuration without feedforward layers achieved a lower self CPU time total (10.018s) than the configuration without positional encoding (11.884s). This suggests that removing feedforward blocks reduces computational overhead more effectively, whereas removing positional encoding increases reliance on other operators, leading to higher runtime costs.”

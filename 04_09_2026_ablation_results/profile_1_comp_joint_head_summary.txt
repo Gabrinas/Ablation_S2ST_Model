@@ -1,0 +1,50 @@
+In summary, the profiling results reveal that cudaLaunchKernel is the dominant bottleneck across all attention head configurations, consuming ~43–46% of CPU time at heads 1–4 and surging to 64% (13.7s) at head=8, which demonstrates that kernel launch overhead scales poorly with higher attention heads. Alongside this, aten::copy_ grows substantially, reaching 3.33s at head=8, showing that memory copy operations become a major cost driver as head count increases. Although aten::empty allocations remain consistently heavy (~190 GB CUDA memory), their relative CPU share decreases at higher heads, while LayerNorm operations (aten::layer_norm, aten::native_layer_norm) remain lightweight (<0.03%) but still exhibit scaling overhead. Overall runtime trends highlight a sharp increase: Head=1 → 9.717s, Head=2 → 10.553s, Head=4 → 10.227s, and Head=8 → 21.297s, indicating that moving from 4 to 8 heads nearly doubles runtime, driven primarily by kernel launches and memory copy operations. This underscores the trade‑off between improved model expressiveness and disproportionately higher computational costs at larger head counts.
+
+
+
+definition of terms
+
+
+Operator Definitions
+aten::layer_norm → Applies layer normalization to stabilize training by normalizing across features.
+
+aten::native_layer_norm → The lower‑level implementation of layer normalization, called internally by aten::layer_norm.
+
+aten::empty → Allocates an uninitialized tensor in memory; frequent calls reflect repeated tensor creation.
+
+cudaLaunchKernel → Launches GPU kernels; represents the overhead of starting parallel GPU computations.
+
+aten::view → Returns a new view of a tensor with a different shape without copying data.
+
+aten::linear → Performs a linear transformation (matrix multiplication + bias), the core of fully connected layers.
+
+aten::to → Moves or casts tensors to a different device or data type (e.g., CPU → GPU, float → int).
+
+aten::_to_copy → A variant of aten::to that explicitly copies data when moving tensors between devices or types.
+
+aten::empty_strided → Allocates an uninitialized tensor with a specified stride layout in memory.
+
+aten::copy_ → Copies data from one tensor to another; frequent calls indicate heavy memory transfer.
+
+📊 Profiling Metrics
+Self CPU Time → Time spent directly inside an operator, excluding sub‑calls.
+
+CPU Total Time → Inclusive time: operator’s own time plus all sub‑calls.
+
+Calls → Number of times an operator was invoked during execution. High counts often explain cumulative overhead.
+
+Self CPU time total → The sum of all operators’ self times, representing the total runtime cost of the model on CPU.
+
+
+
+
+Thesis‑ready phrasing
+“The # Calls metric in the profiler output reflects the number of times each operator was invoked during the profiling window. In this study, profiling was performed at step 2 within the first epoch, so the reported call counts correspond to that single step rather than the entire epoch or full training run. This distinction is important, as profiling captures operator behavior at a specific point in training rather than cumulative statistics.”
+
+
+✅ Thesis‑ready phrasing
+“In the profiler output, aten::copy_ represents intra‑device tensor copies (e.g., GPU→GPU), while aten::to and its internal variant _to_copy handle inter‑device transfers or type conversions (e.g., CPU→GPU or float→half precision). This distinction highlights that local memory copies are frequent but relatively lightweight, whereas cross‑device transfers introduce additional overhead.”
+
+✅ Thesis‑ready phrasing
+“An uninitialized tensor is a memory allocation without preset values. Operators such as aten::empty and aten::empty_strided reserve space for tensors but do not initialize their contents, making them faster than zeros() or ones() when the tensor will be immediately populated by subsequent operations.”
+

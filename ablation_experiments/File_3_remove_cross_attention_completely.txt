@@ -1,0 +1,67 @@
+import torch
+import torch.nn as nn
+
+class S2STModel(nn.Module):
+    def __init__(self, encoder, phoneme_decoder, cross_attention, synthesizer):
+        super().__init__()
+        self.encoder = encoder
+        self.phoneme_decoder = phoneme_decoder
+        # Replace cross-attention with Identity if disabled
+        self.cross_attention = nn.Identity()
+        self.synthesizer = synthesizer
+        
+    def forward(self, src_feats, tgt_phonemes, mask=None):
+        """
+        Training forward pass: requires both source features and target phonemes.
+        """
+        enc_out = self.encoder(src_feats, mask)
+        phoneme_logits, hidden_states, _ = self.phoneme_decoder(tgt_phonemes)
+
+        attn_out = hidden_states  # bypass attention
+
+        unit_logits = self.synthesizer(hidden_states, attn_out)
+        return phoneme_logits, unit_logits
+
+    def infer(self, src_feats, mask=None):
+        """
+        Inference forward pass: only source features, no target phonemes.
+        """
+        enc_out = self.encoder(src_feats, mask)
+
+        # Simplest option: use encoder outputs as hidden states
+        hidden_states = enc_out
+
+        
+        attn_out = hidden_states
+
+        unit_logits = self.synthesizer(hidden_states, attn_out)
+
+        # Argmax → discrete unit IDs
+        predicted_units = torch.argmax(unit_logits, dim=-1)
+        return predicted_units
+        
+    def infer_autoregressive(self, src_feats, mask=None, max_len=200, start_token=1, eos_token=2):
+        """
+        Autoregressive inference: generates tokens step-by-step until EOS or max_len.
+        """
+        enc_out = self.encoder(src_feats, mask)
+        hidden = None
+        prev_token = torch.tensor([[start_token]], device=src_feats.device)
+        outputs = []
+
+        for t in range(max_len):
+            phoneme_logits, hidden_states, hidden = self.phoneme_decoder(prev_token, hidden)
+
+            
+            attn_out = hidden_states
+
+            unit_logits = self.synthesizer(hidden_states, attn_out)
+
+            next_token = torch.argmax(unit_logits[:, -1, :], dim=-1)
+            outputs.append(next_token.item())
+            prev_token = next_token.unsqueeze(1)
+
+            if next_token.item() == eos_token:
+                break
+
+        return outputs

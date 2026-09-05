@@ -1,0 +1,34 @@
+class ConformerBlock(nn.Module):
+    def __init__(self, d_model, d_ff, num_heads, kernel_size=31, dropout=0.1, use_mhsa=True):
+        super().__init__()
+        # Feedforward modules
+        self.ffn1 = FeedForward(d_model, d_ff, dropout)
+        self.ffn2 = FeedForward(d_model, d_ff, dropout)
+
+        # Multi-head self-attention (optional)
+        if use_mhsa:
+            self.mhsa = MultiHeadAttention(d_model, num_heads, dropout, use_positional_encoding=True)
+        else:
+            self.mhsa = nn.Identity()  # bypass attention completely
+
+        # Convolution module
+        self.conv_module = ConformerConvModule(d_model, kernel_size, dropout)
+
+        # Final layer norm
+        self.layer_norm = nn.LayerNorm(d_model)
+
+    def forward(self, x, mask=None):
+        # FFN1 with residual scaling
+        x = x + 0.5 * self.ffn1(x)
+
+        # MHSA with residual (or Identity if disabled)
+        x = x + self.mhsa(x, x, x, mask) if not isinstance(self.mhsa, nn.Identity) else self.mhsa(x)
+
+        # Convolution module with residual
+        x = x + self.conv_module(x)
+
+        # FFN2 with residual scaling
+        x = x + 0.5 * self.ffn2(x)
+
+        # Final layer norm
+        return self.layer_norm(x)
